@@ -1,4 +1,4 @@
-import { buildPlugin } from '../../tools/build-plugin.ts';
+import { buildPlugin } from './tools/build-plugin.ts';
 import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';

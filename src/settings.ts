@@ -8,13 +8,13 @@ export type Fit = (typeof FITS)[number];
 export const LIMITS = Object.freeze({ blur: 64, tint: 95, noise: 8 });
 export type Amount = keyof typeof LIMITS;
 
-const SWITCHES = ['enabled', 'fluent', 'reveal'] as const;
+const SWITCHES = ['enabled', 'fluent', 'reveal', 'hideDiffHover'] as const;
 export type Switch = (typeof SWITCHES)[number];
 
 export type Settings = { -readonly [Key in Switch]: boolean } & { -readonly [Key in Amount]: number } & { fit: Fit };
 export type SettingsPatch = Partial<Settings>;
 
-export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({ enabled: true, blur: 32, tint: 72, noise: 3, fit: 'cover', fluent: true, reveal: true });
+export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({ enabled: true, blur: 32, tint: 72, noise: 3, fit: 'cover', fluent: true, reveal: true, hideDiffHover: true });
 
 export const own = (value: object, key: PropertyKey): boolean => Object.prototype.hasOwnProperty.call(value, key);
 export const object = (value: unknown): Record<string, unknown> => value !== null && typeof value === 'object' ? value as Record<string, unknown> : {};

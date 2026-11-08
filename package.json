@@ -2,7 +2,7 @@
   "name": "@shellraining/dsh-fluent-theme",
   "version": "0.1.7",
   "type": "module",
-  "description": "Windows 10 风格主题，提供亚克力背景、Reveal 光效和交互动效。",
+  "description": "Windows 10-inspired acrylic backgrounds, Reveal lighting, and interaction animations for DSH.",
   "main": "./index.js",
   "exports": {
     ".": "./index.js",
@@ -15,24 +15,29 @@
     "client.js",
     "cordis.patch.yml",
     "icon.png",
-    "locale"
+    "locale",
+    "LICENSE",
+    "README.md",
+    "README.zh-CN.md"
   ],
   "scripts": {
     "host-tokens": "node scripts/host-tokens.mjs",
-    "typecheck": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tools/tsconfig.json && tsc -p tsconfig.json",
     "dev": "node --watch-path=src --watch-preserve-output build.ts",
-    "build": "pnpm run typecheck && node build.ts"
+    "build": "pnpm run typecheck && node build.ts",
+    "check": "pnpm typecheck && pnpm build"
   },
   "engines": {
     "node": ">=20",
     "dsh": ">=0.2.2-rc.1 <0.3.0"
   },
   "devDependencies": {
-    "@deepseek-ai/dsh-client-ui-primitives": "catalog:",
-    "@deepseek-ai/dsh-client-ui-theme": "catalog:",
-    "@types/react": "catalog:",
-    "happy-dom": "catalog:",
-    "typescript": "catalog:"
+    "@deepseek-ai/dsh-client-ui-primitives": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-ui-theme": "0.2.2-rc.1",
+    "@types/react": "18.3.31",
+    "@types/node": "24.19.2",
+    "typescript": "7.0.2",
+    "vite": "8.3.5"
   },
   "dsh": {
     "bundle": {
@@ -44,7 +49,8 @@
       "inject": [
         "@deepseek-ai/dsh-client-ui-settings",
         "@deepseek-ai/dsh-client-ui-layout",
-        "@deepseek-ai/dsh-client-ui-theme"
+        "@deepseek-ai/dsh-client-ui-theme",
+        "@deepseek-ai/dsh-client-locale"
       ]
     }
   },
@@ -52,11 +58,10 @@
   "author": "shellRaining",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/shellRaining/dsh-plugins.git",
-    "directory": "plugins/fluent-theme"
+    "url": "git+https://github.com/omdsh-dev/dsh-fluent-theme.git"
   },
-  "homepage": "https://github.com/shellRaining/dsh-plugins/tree/main/plugins/fluent-theme#readme",
-  "bugs": "https://github.com/shellRaining/dsh-plugins/issues",
+  "homepage": "https://github.com/omdsh-dev/dsh-fluent-theme#readme",
+  "bugs": "https://github.com/omdsh-dev/dsh-fluent-theme/issues",
   "keywords": [
     "deepseek-harness",
     "dsh",
@@ -65,5 +70,6 @@
   "publishConfig": {
     "access": "public"
   },
-  "icon": "./icon.png"
+  "icon": "./icon.png",
+  "packageManager": "pnpm@12.6.0"
 }

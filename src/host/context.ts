@@ -19,11 +19,19 @@ export interface ThemeService {
 }
 
 export interface SlotsService {
-  inject(name: string, factory: () => Dispose | void): unknown;
+  inject(name: string, factory: () => Dispose | void): Dispose;
   register<P extends object>(definition: Readonly<Record<string, unknown>>, component: ComponentType<P>): Dispose;
 }
 
+export interface LocaleService {
+  register(ns: string, locale: string, dict: Readonly<Record<string, string>>): Dispose;
+  bind(ns: string): (key: string) => string;
+  getSnapshot(): { readonly active: string; readonly revision: number };
+  subscribe(listener: () => void): Dispose;
+}
+
 export interface ClientContext {
+  readonly locale: LocaleService;
   readonly slots: SlotsService;
   readonly theme?: ThemeService | undefined;
   effect(callback: () => Dispose | void, label?: string): unknown;

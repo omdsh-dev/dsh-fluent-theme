@@ -1,1 +1,5 @@
 node_modules/
+*.tgz
+.vite-output/
+*.tmp
+.DS_Store

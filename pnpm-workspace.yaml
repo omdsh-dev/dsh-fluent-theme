@@ -1,0 +1,3 @@
+# 平台二进制由可选依赖提供，不运行依赖安装脚本。
+allowBuilds:
+  esbuild: false

@@ -1,5 +1,7 @@
-import { useId, useRef, useSyncExternalStore, type ComponentType } from 'react';
+import { useCallback, useId, useRef, useSyncExternalStore, type ComponentType } from 'react';
 import { SegmentedControl } from '@deepseek-ai/dsh-client-ui-primitives';
+import type { LocaleService } from './host/context.ts';
+import type { CopyKey, Translate } from './locale.ts';
 import type { Controller } from './controller.ts';
 import { LIMITS, type Amount, type Fit, type Switch } from './settings.ts';
 
@@ -22,12 +24,15 @@ export const PANEL_CSS = `
 [data-acrylic-settings] .acrylic-filename { overflow-wrap: anywhere; }
 `;
 
-const FIT_HINTS: Readonly<Record<Fit, string>> = { cover: '保持比例，裁去多余部分。', contain: '显示整张图片，边缘可能留空。', stretch: '铺满窗口，图片可能变形。', tile: '按原尺寸重复排列。' };
-const FIT_OPTIONS: readonly { value: Fit; label: string }[] = [{ value: 'cover', label: '填满' }, { value: 'contain', label: '适应' }, { value: 'stretch', label: '拉伸' }, { value: 'tile', label: '平铺' }];
+const FITS = ['cover', 'contain', 'stretch', 'tile'] as const satisfies readonly Fit[];
+const FIT_HINTS: Record<Fit, CopyKey> = { cover: 'coverHint', contain: 'containHint', stretch: 'stretchHint', tile: 'tileHint' };
 
-export function createSettingsPanel(controller: Controller): ComponentType {
+export function createSettingsPanel(controller: Controller, locale: LocaleService, t: Translate): ComponentType {
   return function AcrylicSettings() {
     const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
+    const subscribeLocale = useCallback((listener: () => void) => locale.subscribe(listener), []);
+    const localeRevision = useCallback(() => locale.getSnapshot().revision, []);
+    useSyncExternalStore(subscribeLocale, localeRevision);
     const input = useRef<HTMLInputElement>(null);
     const id = useId();
     const locked = state.loading || state.busy;
@@ -59,12 +64,12 @@ export function createSettingsPanel(controller: Controller): ComponentType {
     }
     return (
       <section data-acrylic-settings="">
-        <h2>Win10 Fluent 主题</h2>
-        {toggle('enabled', '启用主题')}
-        {toggle('fluent', 'Win10 风格')}
-        {toggle('reveal', '悬停与按压光效', locked || !state.settings.fluent)}
-        {state.url ? <img className="acrylic-preview" src={state.url} alt="壁纸预览" /> : null}
-        <p className="acrylic-filename">{state.name || '未选择图片'}</p>
+        <h2>{t('title')}</h2>
+        {toggle('enabled', t('enabled'))}
+        {toggle('fluent', t('fluent'))}
+        {toggle('reveal', t('reveal'), locked || !state.settings.fluent)}
+        {state.url ? <img className="acrylic-preview" src={state.url} alt={t('preview')} /> : null}
+        <p className="acrylic-filename">{state.name || t('noImage')}</p>
         <input
           ref={input} type="file" accept="image/png,image/jpeg,image/webp" hidden
           onChange={event => {
@@ -74,28 +79,31 @@ export function createSettingsPanel(controller: Controller): ComponentType {
           }}
         />
         <div className="acrylic-row">
-          <button type="button" disabled={locked} onClick={() => input.current?.click()}>{state.busy ? '正在处理…' : '选择图片'}</button>
-          <button type="button" disabled={locked || !state.url} onClick={() => void controller.remove()}>移除图片</button>
-          <button type="button" disabled={locked} onClick={() => void controller.reset()}>恢复默认</button>
+          <button type="button" disabled={locked} onClick={() => input.current?.click()}>{state.busy ? t('processing') : t('choose')}</button>
+          <button type="button" disabled={locked || !state.url} onClick={() => void controller.remove()}>{t('remove')}</button>
+          <button type="button" disabled={locked} onClick={() => void controller.reset()}>{t('reset')}</button>
         </div>
         <div className="acrylic-row">
-          <span>填充方式</span>
+          <span>{t('fit')}</span>
           <SegmentedControl
-            id={`${id}-fit`} label="填充方式" value={state.settings.fit}
+            id={`${id}-fit`} label={t('fit')} value={state.settings.fit}
             disabled={locked}
             onChange={fit => void controller.commit({ fit })}
-            options={FIT_OPTIONS}
+            options={FITS.map(value => ({ value, label: t(value) }))}
           />
         </div>
-        {(Object.entries(FIT_HINTS) as [Fit, string][]).map(([fit, text]) => (
-          <p key={fit} id={`${id}-fit-${fit}-panel`} role="tabpanel" aria-labelledby={`${id}-fit-${fit}`} hidden={state.settings.fit !== fit}>{text}</p>
+        {FITS.map(fit => (
+          <p key={fit} id={`${id}-fit-${fit}-panel`} role="tabpanel" aria-labelledby={`${id}-fit-${fit}`} hidden={state.settings.fit !== fit}>{t(FIT_HINTS[fit])}</p>
         ))}
-        {slider('blur', '模糊', 'px')}
-        {slider('tint', '遮罩', '%')}
-        {slider('noise', '颗粒', '%')}
-        <p>支持 PNG、JPEG、WebP，最大 20 MiB。图片仅保存在本机。</p>
-        {state.error ? <p role="alert">{`未能保存，请重试。${state.error}`}</p> : null}
-        {state.loading ? <p role="status">正在加载…</p> : null}
+        {slider('blur', t('blur'), 'px')}
+        {slider('tint', t('tint'), '%')}
+        {slider('noise', t('noise'), '%')}
+        <p>{t('imageHint')}</p>
+        <h2>{t('preferences')}</h2>
+        {toggle('hideDiffHover', t('hideDiffHover'))}
+        <p>{t('diffHint')}</p>
+        {state.error ? <div role="alert"><p>{t('saveError')}</p><details><summary>{t('details')}</summary><p>{state.error}</p></details></div> : null}
+        {state.loading ? <p role="status">{t('loading')}</p> : null}
       </section>
     );
   };

@@ -10,7 +10,7 @@ let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-
 let react_jsx_runtime = require("react/jsx-runtime");
 // src/settings.ts
 var PLUGIN_ID = "dsh-acrylic-wallpaper";
-var FITS = Object.freeze([
+var FITS$1 = Object.freeze([
 	"cover",
 	"contain",
 	"stretch",
@@ -24,7 +24,8 @@ var LIMITS = Object.freeze({
 var SWITCHES = [
 	"enabled",
 	"fluent",
-	"reveal"
+	"reveal",
+	"hideDiffHover"
 ];
 var DEFAULT_SETTINGS = Object.freeze({
 	enabled: true,
@@ -33,11 +34,12 @@ var DEFAULT_SETTINGS = Object.freeze({
 	noise: 3,
 	fit: "cover",
 	fluent: true,
-	reveal: true
+	reveal: true,
+	hideDiffHover: true
 });
 var own = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
 var object = (value) => value !== null && typeof value === "object" ? value : {};
-var isFit = (value) => FITS.includes(value);
+var isFit = (value) => FITS$1.includes(value);
 function normalizeSettings(input) {
 	const value = object(input);
 	const result = { ...DEFAULT_SETTINGS };
@@ -2949,33 +2951,24 @@ var PANEL_CSS = `
 [data-acrylic-settings] [role=alert] { color: var(--dsw-alias-state-error-primary); }
 [data-acrylic-settings] .acrylic-filename { overflow-wrap: anywhere; }
 `;
-var FIT_HINTS = {
-	cover: "保持比例，裁去多余部分。",
-	contain: "显示整张图片，边缘可能留空。",
-	stretch: "铺满窗口，图片可能变形。",
-	tile: "按原尺寸重复排列。"
-};
-var FIT_OPTIONS = [
-	{
-		value: "cover",
-		label: "填满"
-	},
-	{
-		value: "contain",
-		label: "适应"
-	},
-	{
-		value: "stretch",
-		label: "拉伸"
-	},
-	{
-		value: "tile",
-		label: "平铺"
-	}
+var FITS = [
+	"cover",
+	"contain",
+	"stretch",
+	"tile"
 ];
-function createSettingsPanel(controller) {
+var FIT_HINTS = {
+	cover: "coverHint",
+	contain: "containHint",
+	stretch: "stretchHint",
+	tile: "tileHint"
+};
+function createSettingsPanel(controller, locale, t) {
 	return function AcrylicSettings() {
 		const state = (0, react.useSyncExternalStore)(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
+		const subscribeLocale = (0, react.useCallback)((listener) => locale.subscribe(listener), []);
+		const localeRevision = (0, react.useCallback)(() => locale.getSnapshot().revision, []);
+		(0, react.useSyncExternalStore)(subscribeLocale, localeRevision);
 		const input = (0, react.useRef)(null);
 		const id = (0, react.useId)();
 		const locked = state.loading || state.busy;
@@ -3021,18 +3014,18 @@ function createSettingsPanel(controller) {
 		return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
 			"data-acrylic-settings": "",
 			children: [
-				/* @__PURE__ */ (0, react_jsx_runtime.jsx)("h2", { children: "Win10 Fluent 主题" }),
-				toggle("enabled", "启用主题"),
-				toggle("fluent", "Win10 风格"),
-				toggle("reveal", "悬停与按压光效", locked || !state.settings.fluent),
+				/* @__PURE__ */ (0, react_jsx_runtime.jsx)("h2", { children: t("title") }),
+				toggle("enabled", t("enabled")),
+				toggle("fluent", t("fluent")),
+				toggle("reveal", t("reveal"), locked || !state.settings.fluent),
 				state.url ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("img", {
 					className: "acrylic-preview",
 					src: state.url,
-					alt: "壁纸预览"
+					alt: t("preview")
 				}) : null,
 				/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 					className: "acrylic-filename",
-					children: state.name || "未选择图片"
+					children: state.name || t("noImage")
 				}),
 				/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
 					ref: input,
@@ -3052,59 +3045,146 @@ function createSettingsPanel(controller) {
 							type: "button",
 							disabled: locked,
 							onClick: () => input.current?.click(),
-							children: state.busy ? "正在处理…" : "选择图片"
+							children: state.busy ? t("processing") : t("choose")
 						}),
 						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 							type: "button",
 							disabled: locked || !state.url,
 							onClick: () => void controller.remove(),
-							children: "移除图片"
+							children: t("remove")
 						}),
 						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 							type: "button",
 							disabled: locked,
 							onClick: () => void controller.reset(),
-							children: "恢复默认"
+							children: t("reset")
 						})
 					]
 				}),
 				/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 					className: "acrylic-row",
-					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: "填充方式" }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.SegmentedControl, {
+					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: t("fit") }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.SegmentedControl, {
 						id: `${id}-fit`,
-						label: "填充方式",
+						label: t("fit"),
 						value: state.settings.fit,
 						disabled: locked,
 						onChange: (fit) => void controller.commit({ fit }),
-						options: FIT_OPTIONS
+						options: FITS.map((value) => ({
+							value,
+							label: t(value)
+						}))
 					})]
 				}),
-				Object.entries(FIT_HINTS).map(([fit, text]) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+				FITS.map((fit) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 					id: `${id}-fit-${fit}-panel`,
 					role: "tabpanel",
 					"aria-labelledby": `${id}-fit-${fit}`,
 					hidden: state.settings.fit !== fit,
-					children: text
+					children: t(FIT_HINTS[fit])
 				}, fit)),
-				slider("blur", "模糊", "px"),
-				slider("tint", "遮罩", "%"),
-				slider("noise", "颗粒", "%"),
-				/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", { children: "支持 PNG、JPEG、WebP，最大 20 MiB。图片仅保存在本机。" }),
-				state.error ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+				slider("blur", t("blur"), "px"),
+				slider("tint", t("tint"), "%"),
+				slider("noise", t("noise"), "%"),
+				/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", { children: t("imageHint") }),
+				/* @__PURE__ */ (0, react_jsx_runtime.jsx)("h2", { children: t("preferences") }),
+				toggle("hideDiffHover", t("hideDiffHover")),
+				/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", { children: t("diffHint") }),
+				state.error ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 					role: "alert",
-					children: `未能保存，请重试。${state.error}`
+					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", { children: t("saveError") }), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("details", { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("summary", { children: t("details") }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", { children: state.error })] })]
 				}) : null,
 				state.loading ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 					role: "status",
-					children: "正在加载…"
+					children: t("loading")
 				}) : null
 			]
 		});
 	};
 }
+// src/locale.ts
+var LOCALE_NS = "shellraining.fluent-theme";
+var EN = {
+	title: "Win10 Fluent Theme",
+	enabled: "Enable theme",
+	fluent: "Win10 styling",
+	reveal: "Hover and press lighting",
+	preview: "Wallpaper preview",
+	noImage: "No image selected",
+	processing: "Processing…",
+	choose: "Choose image",
+	remove: "Remove image",
+	reset: "Restore defaults",
+	fit: "Image fit",
+	cover: "Fill",
+	contain: "Fit",
+	stretch: "Stretch",
+	tile: "Tile",
+	coverHint: "Keep the aspect ratio and crop the excess.",
+	containHint: "Show the entire image; edges may be empty.",
+	stretchHint: "Fill the window; the image may be distorted.",
+	tileHint: "Repeat the image at its original size.",
+	blur: "Blur",
+	tint: "Tint",
+	noise: "Noise",
+	imageHint: "PNG, JPEG or WebP, up to 20 MiB. Images stay on this device.",
+	preferences: "Preferences",
+	hideDiffHover: "Hide changed-file hover previews",
+	diffHint: "Only hides hover previews. Click to view diffs as usual. The host may still load comparisons. Independent of theme and lighting settings.",
+	saveError: "Could not save. Please try again.",
+	loading: "Loading…",
+	details: "Technical details"
+};
+var ZH = {
+	title: "Win10 Fluent 主题",
+	enabled: "启用主题",
+	fluent: "Win10 风格",
+	reveal: "悬停与按压光效",
+	preview: "壁纸预览",
+	noImage: "未选择图片",
+	processing: "正在处理…",
+	choose: "选择图片",
+	remove: "移除图片",
+	reset: "恢复默认",
+	fit: "填充方式",
+	cover: "填满",
+	contain: "适应",
+	stretch: "拉伸",
+	tile: "平铺",
+	coverHint: "保持比例，裁去多余部分。",
+	containHint: "显示整张图片，边缘可能留空。",
+	stretchHint: "铺满窗口，图片可能变形。",
+	tileHint: "按原尺寸重复排列。",
+	blur: "模糊",
+	tint: "遮罩",
+	noise: "颗粒",
+	imageHint: "支持 PNG、JPEG、WebP，最大 20 MiB。图片仅保存在本机。",
+	preferences: "偏好",
+	hideDiffHover: "隐藏变更文件悬浮预览",
+	diffHint: "仅隐藏悬浮预览，不影响点击查看差异，也不阻止宿主加载比较内容。此偏好独立于主题与光效开关。",
+	saveError: "未能保存，请重试。",
+	loading: "正在加载…",
+	details: "技术详情"
+};
+function bindCopy(locale) {
+	const translate = locale.bind(LOCALE_NS);
+	return (key) => translate(key);
+}
 // src/client.ts
-var inject = ["slots", "theme"];
+var inject = [
+	"slots",
+	"theme",
+	"locale"
+];
 function apply(ctx) {
+	ctx.effect(() => {
+		const disposeEn = ctx.locale.register(LOCALE_NS, "en", EN);
+		const disposeZh = ctx.locale.register(LOCALE_NS, "zh", ZH);
+		return () => {
+			disposeZh();
+			disposeEn();
+		};
+	}, "fluent theme translations");
+	const t = bindCopy(ctx.locale);
 	const controller = createController(window);
 	const appearance = createAppearance(document, window, ctx.theme);
 	const render = () => appearance.update(controller.getSnapshot());
@@ -3126,15 +3206,32 @@ function apply(ctx) {
         display: none !important;
       }
     `);
-		sheet.toggle(true);
-		return sheet.dispose;
+		const update = () => sheet.toggle(controller.getSnapshot().settings.hideDiffHover);
+		const unsubscribe = controller.subscribe(update);
+		update();
+		return () => {
+			unsubscribe();
+			sheet.dispose();
+		};
 	});
-	ctx.slots.inject("settings.section", () => ctx.slots.register({
-		name: "settings.section",
-		id: "acrylic-wallpaper",
-		order: 32,
-		label: "Win10 Fluent 主题"
-	}, createSettingsPanel(controller)));
+	const Panel = createSettingsPanel(controller, ctx.locale, t);
+	ctx.effect(() => {
+		const register = () => ctx.slots.inject("settings.section", () => ctx.slots.register({
+			name: "settings.section",
+			id: "acrylic-wallpaper",
+			order: 32,
+			label: t("title")
+		}, Panel));
+		let dispose = register();
+		const unsubscribe = ctx.locale.subscribe(() => {
+			dispose();
+			dispose = register();
+		});
+		return () => {
+			unsubscribe();
+			dispose();
+		};
+	}, "fluent theme settings");
 }
 exports.apply = apply;
 exports.inject = inject;
