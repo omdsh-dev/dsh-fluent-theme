@@ -113,7 +113,7 @@ pnpm pack
 
 CI 只检查，不在推送到 main 时发布。`release.yml` 仅可手动触发，要求 main 分支并输入与包清单相同的版本；使用 npm OIDC 发布已打包归档，不保存 npm token。
 
-迁移时保留 npm 名称、ModuleLoader ID、Cordis ID 和 IndexedDB 名称。当前版本保留原值；已有 npm 版本不能覆盖，发布前由维护者明确决定新版本并重新构建、提交。目标仓库名确认后核对包清单链接，并把本仓库登记到组织维护者列表。npm trusted publisher 必须重新绑定最终仓库与 `release.yml`，不要把改 GitHub 地址当成发布权限也已迁移。可以由 npm 包所有者执行：
+迁移时保留 npm 名称、ModuleLoader ID、Cordis ID 和 IndexedDB 名称。已有 npm 版本不能覆盖，发布前由维护者明确决定新版本并重新构建、提交。目标仓库名确认后核对包清单链接，并把本仓库登记到组织维护者列表。npm trusted publisher 必须重新绑定最终仓库与 `release.yml`，不要把改 GitHub 地址当成发布权限也已迁移。可以由 npm 包所有者执行：
 
 ```sh
 npm trust github @shellraining/dsh-fluent-theme --repo omdsh-dev/dsh-fluent-theme --file release.yml --allow-publish
@@ -121,7 +121,7 @@ npm trust github @shellraining/dsh-fluent-theme --repo omdsh-dev/dsh-fluent-them
 
 绑定后按 npm 当时的有效期要求完成发布，确认新仓库可以发布后，再撤销旧仓库对本包的发布权限。旧 monorepo 的发布流水线不会因拆分自动停止，不应继续在那里修改本包版本。回滚使用此前已发布的 npm 版本，不删除浏览器数据。
 
-本次拆分准备不包含远端转移、在线 CI 执行、npm 发布或实际页面验收。
+实际页面验收需单独完成，不能用 CI 与归档检查代替。
 
 ## 许可
 

@@ -77,7 +77,7 @@ Strict TypeScript checks both source and build tools. Vite generates root-level 
 
 CI checks pull requests and main pushes without publishing. The `release.yml` workflow publishes only on manual dispatch from main, with an explicit version confirmation. It uses npm OIDC to publish the packed archive with provenance, without a stored npm token.
 
-Keep the current npm name, ModuleLoader ID, Cordis ID and IndexedDB name during migration. Versions remain unchanged in this preparation. Before release, the maintainer must authorize a new version, rebuild and commit it; npm cannot overwrite an existing version. Confirm the destination repository links, register the repository maintainer with the organization, and rebind the npm trusted publisher to the final repository and `release.yml`. The npm package owner can run:
+Keep the current npm name, ModuleLoader ID, Cordis ID and IndexedDB name during migration. Before release, the maintainer must authorize a new version, rebuild and commit it; npm cannot overwrite an existing version. Confirm the destination repository links, register the repository maintainer with the organization, and rebind the npm trusted publisher to the final repository and `release.yml`. The npm package owner can run:
 
 ```sh
 npm trust github @shellraining/dsh-fluent-theme --repo omdsh-dev/dsh-fluent-theme --file release.yml --allow-publish
@@ -85,7 +85,7 @@ npm trust github @shellraining/dsh-fluent-theme --repo omdsh-dev/dsh-fluent-them
 
 Complete publishing within npm's current binding validity window. Once the new publisher works, explicitly retire the former repository's permission. Splitting a repository does not disable the old monorepo's release workflow: stop updating this package's version there. Roll back by installing a previous published npm version without deleting browser data.
 
-This split preparation does not include remote transfer, an online CI run, npm publication, or actual-page acceptance.
+Actual-page acceptance must be performed separately; CI and archive checks do not verify browser interactions.
 
 ## License
 
