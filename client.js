@@ -495,6 +495,12 @@ var HOST_CLASSES = {
 	frame: ["@deepseek-ai/dsh-client-ui-layout/AppFrame.module.css", "frame"]
 };
 /**
+* Packages that replace a host module and keep its class names, as further
+* module tag ids to try. @shellraining/dsh-workspace-folders replaces
+* ui-workspace and keeps its rows.
+*/
+var MODULE_ALIASES = { "@deepseek-ai/dsh-client-ui-workspace/Rows.module.css": ["@shellraining/dsh-workspace-folders/Rows.module.css"] };
+/**
 * Shell-bundled modules, as [local class, selector suffix] pairs that the
 * module's rules must all have under one shared hash (attribute values
 * unquoted). Exactly one hash may match.
@@ -538,7 +544,11 @@ var literal = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 var select = (found) => found ? `[class~="${found}"]` : null;
 function fromModuleTag(document, name) {
 	const [module, local] = HOST_CLASSES[name];
-	return select(document.head.querySelector(`style[data-plugin-css=${JSON.stringify(module)}]`)?.textContent?.match(new RegExp(String.raw`\.([\w-]+_${local})(?![\w-])`))?.[1]);
+	for (const id of [module, ...MODULE_ALIASES[module] ?? []]) {
+		const found = document.head.querySelector(`style[data-plugin-css=${JSON.stringify(id)}]`)?.textContent?.match(new RegExp(String.raw`\.([\w-]+_${local})(?![\w-])`))?.[1];
+		if (found) return select(found);
+	}
+	return null;
 }
 /** Single selectors of the shell's linked stylesheets; unreadable (cross-origin) sheets are skipped. */
 function shellSelectors(document, window) {

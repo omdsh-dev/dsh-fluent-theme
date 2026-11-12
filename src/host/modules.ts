@@ -37,6 +37,15 @@ export type HostClassName = keyof typeof HOST_CLASSES;
 type ModuleId = (typeof HOST_CLASSES)[HostClassName][0];
 
 /**
+ * Packages that replace a host module and keep its class names, as further
+ * module tag ids to try. @shellraining/dsh-workspace-folders replaces
+ * ui-workspace and keeps its rows.
+ */
+const MODULE_ALIASES: Partial<Record<ModuleId, readonly string[]>> = {
+  '@deepseek-ai/dsh-client-ui-workspace/Rows.module.css': ['@shellraining/dsh-workspace-folders/Rows.module.css'],
+};
+
+/**
  * Shell-bundled modules, as [local class, selector suffix] pairs that the
  * module's rules must all have under one shared hash (attribute values
  * unquoted). Exactly one hash may match.
@@ -78,8 +87,12 @@ const select = (found: string | null | undefined) => found ? `[class~="${found}"
 
 function fromModuleTag(document: Document, name: HostClassName): string | null {
   const [module, local] = HOST_CLASSES[name];
-  const style = document.head.querySelector(`style[data-plugin-css=${JSON.stringify(module)}]`);
-  return select(style?.textContent?.match(new RegExp(String.raw`\.([\w-]+_${local})(?![\w-])`))?.[1]);
+  for (const id of [module, ...MODULE_ALIASES[module] ?? []]) {
+    const style = document.head.querySelector(`style[data-plugin-css=${JSON.stringify(id)}]`);
+    const found = style?.textContent?.match(new RegExp(String.raw`\.([\w-]+_${local})(?![\w-])`))?.[1];
+    if (found) return select(found);
+  }
+  return null;
 }
 
 /** Single selectors of the shell's linked stylesheets; unreadable (cross-origin) sheets are skipped. */

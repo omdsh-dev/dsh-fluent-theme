@@ -43,6 +43,8 @@ Mermaid and inline-code-copy are optional, independently installed plugins. They
 
 Their presence follows the effective feature state, including accessibility restrictions. Do not assume that the theme is installed. Keep ordinary styles usable without either marker.
 
+[Workspace Folders](https://github.com/shellRaining/dsh-workspace-folders/tree/main/packages/client/ui-workspace/fork) replaces the official workspace list while keeping its row classes. The theme also reads that plugin's `Rows.module.css`, so sidebar rows keep the Win10 styling with either list installed.
+
 The theme uses semantic host attributes when available, but also resolves some CSS-module IDs, class formats and rule signatures at runtime. These are not stable public theme APIs. Recheck popups, sidebars, settings, quotes, composer backing, long conversations and disposal after upgrading DSH. Type checking does not establish runtime compatibility.
 
 ## Migration from the former package

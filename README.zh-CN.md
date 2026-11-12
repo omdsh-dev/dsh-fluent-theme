@@ -99,6 +99,8 @@ pnpm pack
 
 本包通过宿主 `theme.overrideTokens` 和 CSS 提供主题，不要求安装 Mermaid 或行内代码复制。第三方插件可继承 `--dsw-*` 变量；`body[data-acrylic-wallpaper]` 表示壁纸材质启用，`body[data-acrylic-fluent]` 表示 Win10 风格启用。关闭主题、辅助功能限制或停用插件时，标记按当前功能状态移除。不要把这些标记当成必须安装主题的理由。
 
+[工作区文件夹](https://github.com/shellRaining/dsh-workspace-folders/tree/main/packages/client/ui-workspace/fork)会替换官方工作区列表，但保留原来的行样式类名。主题也会读取它的 `Rows.module.css`，所以不管装的是哪个列表，侧栏行都保持 Win10 样式。
+
 主聊天使用 `data-message-bubble`，部分宿主控件仍需要通过 CSS module ID、类名格式和规则签名识别。侧栏过渡由插件重放；这些并非稳定的公开主题 API。DSH 升级后要复核弹层、设置、侧栏、引用、输入区、长对话滚动及启停，类型检查不能证明新宿主运行时兼容。
 
 ## 发布前检查
