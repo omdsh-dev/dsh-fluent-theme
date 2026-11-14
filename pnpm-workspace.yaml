@@ -1,3 +1,6 @@
 # 平台二进制由可选依赖提供，不运行依赖安装脚本。
 allowBuilds:
   esbuild: false
+minimumReleaseAgeExclude:
+  - '@deepseek-ai/dsh-client-ui-primitives@0.2.2-rc.3'
+  - '@deepseek-ai/dsh-client-ui-theme@0.2.2-rc.3'

@@ -1,6 +1,6 @@
 {
   "name": "@shellraining/dsh-fluent-theme",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "type": "module",
   "description": "Windows 10-inspired acrylic backgrounds, Reveal lighting, and interaction animations for DSH.",
   "main": "./index.js",
@@ -32,8 +32,8 @@
     "dsh": ">=0.2.2-rc.1 <0.3.0"
   },
   "devDependencies": {
-    "@deepseek-ai/dsh-client-ui-primitives": "0.2.2-rc.1",
-    "@deepseek-ai/dsh-client-ui-theme": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-ui-primitives": "0.2.2-rc.3",
+    "@deepseek-ai/dsh-client-ui-theme": "0.2.2-rc.3",
     "@types/react": "18.3.31",
     "@types/node": "24.19.2",
     "typescript": "7.0.2",
