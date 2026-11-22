@@ -10,8 +10,9 @@ import { insideProjection, pressGeometry } from './press-geometry.ts';
 // Resolve real controls at the pointer, not component names or whole DOM lists.
 // Host nodes/pseudo-elements/event handlers stay untouched, including titlebar
 // drag regions whose attribute mutations are monitored by the desktop host.
+const REVEAL_INLINE_CODE = ':not(pre) > code';
 const REVEAL_FIELDS = 'input:not([type="hidden"]):not([type="file"]):not([type="range"]):not([type="color"]),textarea,select,[role="textbox"],[role="searchbox"],[role="combobox"],[contenteditable="true"]';
-export const REVEAL_TARGETS = `${ACTION_TARGETS},${REVEAL_FIELDS}`;
+export const REVEAL_TARGETS = `${ACTION_TARGETS},${REVEAL_FIELDS},${REVEAL_INLINE_CODE}`;
 const REVEAL_LAYERS = `[${POPUP_ATTRIBUTE}],[data-menu-material],[role="menu"],[role="dialog"],[role="alertdialog"],[role="listbox"],[role="tooltip"],[data-composer-overlay],[data-dockkit-float],[style*="--dsh-hover-preview-fade"]`;
 // Opted out by other plugins (contract.ts), or not a live control.
 const REVEAL_EXCLUDED = `[${NO_REVEAL_ATTRIBUTE}],[hidden],[inert],[aria-hidden="true"],[data-closing],[data-acrylic-ghost],[data-acrylic-reveal],[data-width-handle],[data-dockkit-divider],[data-dockkit-float-resize],.monaco-editor,.xterm`;
@@ -53,10 +54,11 @@ export function createReveal(document: Document, window: Window & typeof globalT
   // surface, so it never lights and hovering it lights nothing nearby.
   let controls = REVEAL_TARGETS, quiet: string | null = null;
   // Sent user text (the bubble alone, not attachments, timestamps or row
-  // actions) in the main chat and in side chat, which skips pending messages.
-  const surfaces = `${COMPOSER_CARD},[data-testid="todo-panel"],[data-side-chat] .dsc-bubble:not([data-pending]),:is([data-chat-flow-kind="user"],[data-chat-flow-kind="steering"]) [data-message-bubble]`;
+  // actions) in the main chat and in side chat, which skips pending messages,
+  // plus fenced code block cards.
+  const surfaces = `${COMPOSER_CARD},[data-testid="todo-panel"],.md-code-block,[data-side-chat] .dsc-bubble:not([data-pending]),:is([data-chat-flow-kind="user"],[data-chat-flow-kind="steering"]) [data-message-bubble]`;
   function resolve() {
-    controls = `${actionSelector(modules)},${REVEAL_FIELDS}`;
+    controls = `${actionSelector(modules)},${REVEAL_FIELDS},${REVEAL_INLINE_CODE}`;
     quiet = modules.select('turnRail');
   }
   const borderOnly = (target: Element) => target.matches(`${REVEAL_FIELDS},${surfaces}`);
@@ -93,6 +95,10 @@ export function createReveal(document: Document, window: Window & typeof globalT
     if (!node || node.closest(`[${NO_REVEAL_ATTRIBUTE}],[hidden],[inert],[data-closing],[data-acrylic-ghost],.monaco-editor,.xterm`) || (quiet && node.closest(quiet))) return null;
     const editor = node.closest(COMPOSER_INPUT);
     if (editor) return editor.closest(COMPOSER_CARD);
+    // An inline code chip owns the visual pill border and fill even when it
+    // wraps a file-mention button or link.
+    const inlineCode = node.closest(REVEAL_INLINE_CODE);
+    if (inlineCode && !inlineCode.parentElement?.closest(controls)) return inlineCode;
     const target = node.closest(controls);
     // TodoPanel's header is inset by body padding; its visual surface is the
     // enclosing card, not that inner button. Keep this decoration border-only
@@ -220,8 +226,9 @@ export function createReveal(document: Document, window: Window & typeof globalT
       node.style.setProperty('--reveal-radius', radius);
       node.style.setProperty('--reveal-x', `${local.x}px`);
       node.style.setProperty('--reveal-y', `${local.y}px`);
-      node.style.setProperty('--reveal-border', String(strength * (borderOnly ? .48 : .38)));
-      node.style.setProperty('--reveal-surface', String(!borderOnly && hover ? .045 : 0));
+      const isInlineCode = target.localName === 'code';
+      node.style.setProperty('--reveal-border', String(strength * (borderOnly ? .48 : isInlineCode ? .52 : .38)));
+      node.style.setProperty('--reveal-surface', String(!borderOnly && hover ? (isInlineCode ? .085 : .045) : 0));
       const current = press;
       if (current?.target === target && !current.light) {
         current.light = createPressLight(document, window, node, () => {

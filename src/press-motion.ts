@@ -58,7 +58,10 @@ export function createPressMotion(document: Document, window: View, modules: Hos
     if (!(node instanceof window.Element) || node.closest(ACTION_FIELDS)) return null;
     const quiet = modules.select('turnRail');
     if (quiet && node.closest(quiet)) return null;
-    const target = node.closest(actionSelector(modules));
+    const actors = actionSelector(modules);
+    const inlineCode = node.closest(':not(pre) > code');
+    if (inlineCode && !inlineCode.parentElement?.closest(actors)) return null;
+    const target = node.closest(actors);
     return target instanceof window.HTMLElement ? target : null;
   }
   function available(target: HTMLElement): boolean {

@@ -21,15 +21,24 @@ const COMPACTION_HEADER = 'button[aria-expanded="true"]:has(> span > [data-compa
 const CODE_BANNER = '.md-code-block > :has(> [data-code-block-banner])';
 const TINT = { light: '247 247 247', dark: '24 24 24' };
 // Per canvas token: a kept opaque copy, cleared, restored and sticky-bar values.
+const CODE_SURFACE_TOKENS = [
+  ['--dsw-alias-markdown-code-block', 72],
+  ['--dsw-alias-markdown-code-block-banner', 80],
+  ['--dsw-alias-markdown-inline-code', 74],
+] as const;
+
 const CANVAS_RULES = (() => {
   type Canvas = keyof typeof CANVAS_TOKENS;
   const names = Object.keys(CANVAS_TOKENS) as Canvas[];
-  const kept = (name: Canvas) => `--acrylic-opaque${name.slice(1)}`;
+  const kept = (name: string) => `--acrylic-opaque${name.slice(1)}`;
   const join = (value: (name: Canvas) => string) => names.map(name => `${name}: ${value(name)};`).join(' ');
+  const codeKeep = CODE_SURFACE_TOKENS.map(([name]) => `${kept(name)}: var(${name});`).join(' ');
+  const codeTint = CODE_SURFACE_TOKENS.map(([name, pct]) => `${name}: color-mix(in srgb, var(${kept(name)}) ${pct}%, transparent);`).join(' ');
+  const codeRestore = CODE_SURFACE_TOKENS.map(([name]) => `${name}: var(${kept(name)});`).join(' ');
   return {
-    keep: names.map(name => `${kept(name)}: var(${name});`).join(' '),
-    clear: join(() => 'transparent'),
-    restore: join(name => `var(${kept(name)})`),
+    keep: `${names.map(name => `${kept(name)}: var(${name});`).join(' ')} ${codeKeep}`,
+    clear: `${join(() => 'transparent')} ${codeTint}`,
+    restore: `${join(name => `var(${kept(name)})`)} ${codeRestore}`,
     bar: join(name => `color-mix(in srgb, var(${kept(name)}) 82%, transparent)`),
     acrylic: `color-mix(in srgb, var(${kept('--dsw-alias-bg-base')}) 82%, transparent)`,
     // Fallback for acrylic surfaces where backdrop-filter is unsupported.
@@ -177,15 +186,22 @@ ${FRAME}[data-sidebar-drawer] > ${SIDEBAR_COL}::before {
 /* Sticky rows that used the canvas to hide scrolled content become acrylic
    bars, matched by the host's own semantic anchors (host/modules.ts): an open
    compaction header (sticky exactly while expanded), and a code block's banner
-   wrapper, which the host itself selects as :has(>[data-code-block-banner]). */
+   wrapper, which the host itself selects as :has(>[data-code-block-banner]).
+   Code blocks paint their translucent fill on .md-code-block once; <pre> stays
+   transparent so the fill does not compound, and the sticky banner blurs code
+   scrolling beneath it. */
+${FRAME} .md-code-block :where(pre, pre.shiki) { background: transparent !important; }
+${FRAME} [data-code-block-banner] { background: var(--dsw-alias-markdown-code-block-banner); }
 ${FRAME} [data-expanded] [data-open] [data-disclosure-header],
 ${FRAME} ${COMPACTION_HEADER},
 ${FRAME} ${CODE_BANNER},
 ${FRAME} th {
   ${CANVAS_RULES.bar}
 }
+${FRAME} ${CODE_BANNER} { background: transparent; }
 ${FRAME} [data-expanded] [data-open] [data-disclosure-header],
-${FRAME} ${COMPACTION_HEADER} {
+${FRAME} ${COMPACTION_HEADER},
+${FRAME} ${CODE_BANNER} {
   backdrop-filter: blur(20px) saturate(1.2);
 }
 

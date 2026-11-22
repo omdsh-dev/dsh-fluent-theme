@@ -85,6 +85,37 @@ html[data-platform="darwin"] body[data-acrylic-fluent] [data-menu-backing] {
 html[data-platform="darwin"] body[data-acrylic-fluent][data-ds-dark-theme] [data-menu-backing] {
   background: #202020;
 }
+/* Code blocks and inline code chips: crisp Win10 borders, single-layer code
+   surface fill, separated banner band, and scheme-aware hover/active feedback
+   on interactive inline code (links, file mentions, and assistant copy chips). */
+body[data-acrylic-fluent] .md-code-block {
+  border: 1px solid var(--dsw-alias-border-l3);
+}
+body[data-acrylic-fluent] .md-code-block :where(pre, pre.shiki) {
+  background: transparent !important;
+}
+body[data-acrylic-fluent] [data-code-block-banner] {
+  background: var(--dsw-alias-markdown-code-block-banner);
+  border-bottom: 1px solid var(--dsw-alias-border-l4);
+}
+body[data-acrylic-fluent] :not(pre) > code {
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  transition: background-color 120ms linear, border-color 120ms linear;
+}
+@media (hover: hover) and (forced-colors: none) {
+  body[data-acrylic-fluent] :is([data-chat-flow-kind="assistant-step"] :not(pre) > code, :not(pre) > code:has(> a, > button)):hover {
+    background-color: color-mix(in srgb, var(--dsw-alias-markdown-inline-code) 82%, var(--dsw-alias-label-primary));
+    border-color: var(--dsw-alias-border-l1);
+    filter: none;
+  }
+}
+@media (forced-colors: none) {
+  body[data-acrylic-fluent] :is([data-chat-flow-kind="assistant-step"] :not(pre) > code, :not(pre) > code:has(> a, > button)):active {
+    background-color: color-mix(in srgb, var(--dsw-alias-markdown-inline-code) 72%, var(--dsw-alias-label-primary));
+    filter: none;
+  }
+}
 `;
 
 // Persistent Pressed paint is separate from the short-lived Reveal light.

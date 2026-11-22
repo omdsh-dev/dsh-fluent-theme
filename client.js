@@ -879,6 +879,37 @@ html[data-platform="darwin"] body[data-acrylic-fluent] [data-menu-backing] {
 html[data-platform="darwin"] body[data-acrylic-fluent][data-ds-dark-theme] [data-menu-backing] {
   background: #202020;
 }
+/* Code blocks and inline code chips: crisp Win10 borders, single-layer code
+   surface fill, separated banner band, and scheme-aware hover/active feedback
+   on interactive inline code (links, file mentions, and assistant copy chips). */
+body[data-acrylic-fluent] .md-code-block {
+  border: 1px solid var(--dsw-alias-border-l3);
+}
+body[data-acrylic-fluent] .md-code-block :where(pre, pre.shiki) {
+  background: transparent !important;
+}
+body[data-acrylic-fluent] [data-code-block-banner] {
+  background: var(--dsw-alias-markdown-code-block-banner);
+  border-bottom: 1px solid var(--dsw-alias-border-l4);
+}
+body[data-acrylic-fluent] :not(pre) > code {
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  transition: background-color 120ms linear, border-color 120ms linear;
+}
+@media (hover: hover) and (forced-colors: none) {
+  body[data-acrylic-fluent] :is([data-chat-flow-kind="assistant-step"] :not(pre) > code, :not(pre) > code:has(> a, > button)):hover {
+    background-color: color-mix(in srgb, var(--dsw-alias-markdown-inline-code) 82%, var(--dsw-alias-label-primary));
+    border-color: var(--dsw-alias-border-l1);
+    filter: none;
+  }
+}
+@media (forced-colors: none) {
+  body[data-acrylic-fluent] :is([data-chat-flow-kind="assistant-step"] :not(pre) > code, :not(pre) > code:has(> a, > button)):active {
+    background-color: color-mix(in srgb, var(--dsw-alias-markdown-inline-code) 72%, var(--dsw-alias-label-primary));
+    filter: none;
+  }
+}
 `;
 function buttonStateCss(modules) {
 	const button = modules.select("button");
@@ -1784,8 +1815,9 @@ function releaseEase(time) {
 	return curve((low + high) / 2, .25, .9);
 }
 // src/reveal.ts
+var REVEAL_INLINE_CODE = ":not(pre) > code";
 var REVEAL_FIELDS = "input:not([type=\"hidden\"]):not([type=\"file\"]):not([type=\"range\"]):not([type=\"color\"]),textarea,select,[role=\"textbox\"],[role=\"searchbox\"],[role=\"combobox\"],[contenteditable=\"true\"]";
-var REVEAL_TARGETS = `${ACTION_TARGETS},${REVEAL_FIELDS}`;
+var REVEAL_TARGETS = `${ACTION_TARGETS},${REVEAL_FIELDS},${REVEAL_INLINE_CODE}`;
 var REVEAL_LAYERS = `[${POPUP_ATTRIBUTE}],[data-menu-material],[role="menu"],[role="dialog"],[role="alertdialog"],[role="listbox"],[role="tooltip"],[data-composer-overlay],[data-dockkit-float],[style*="--dsh-hover-preview-fade"]`;
 var REVEAL_EXCLUDED = `[${NO_REVEAL_ATTRIBUTE}],[hidden],[inert],[aria-hidden="true"],[data-closing],[data-acrylic-ghost],[data-acrylic-reveal],[data-width-handle],[data-dockkit-divider],[data-dockkit-float-resize],.monaco-editor,.xterm`;
 var REVEAL_CSS = `
@@ -1814,9 +1846,9 @@ function createReveal(document, window, modules) {
 		press = null;
 	}
 	let controls = REVEAL_TARGETS, quiet = null;
-	const surfaces = `${COMPOSER_CARD},[data-testid="todo-panel"],[data-side-chat] .dsc-bubble:not([data-pending]),:is([data-chat-flow-kind="user"],[data-chat-flow-kind="steering"]) [data-message-bubble]`;
+	const surfaces = `${COMPOSER_CARD},[data-testid="todo-panel"],.md-code-block,[data-side-chat] .dsc-bubble:not([data-pending]),:is([data-chat-flow-kind="user"],[data-chat-flow-kind="steering"]) [data-message-bubble]`;
 	function resolve() {
-		controls = `${actionSelector(modules)},${REVEAL_FIELDS}`;
+		controls = `${actionSelector(modules)},${REVEAL_FIELDS},${REVEAL_INLINE_CODE}`;
 		quiet = modules.select("turnRail");
 	}
 	const borderOnly = (target) => target.matches(`${REVEAL_FIELDS},${surfaces}`);
@@ -1872,6 +1904,8 @@ function createReveal(document, window, modules) {
 		if (!node || node.closest(`[data-acrylic-no-reveal],[hidden],[inert],[data-closing],[data-acrylic-ghost],.monaco-editor,.xterm`) || quiet && node.closest(quiet)) return null;
 		const editor = node.closest(COMPOSER_INPUT);
 		if (editor) return editor.closest(COMPOSER_CARD);
+		const inlineCode = node.closest(REVEAL_INLINE_CODE);
+		if (inlineCode && !inlineCode.parentElement?.closest(controls)) return inlineCode;
 		const target = node.closest(controls);
 		const todo = node.closest("[data-testid=\"todo-panel\"]");
 		if (todo && (!target || target.matches("[data-testid=\"todo-panel\"] > div > button[aria-expanded]"))) return todo;
@@ -2048,8 +2082,9 @@ function createReveal(document, window, modules) {
 			node.style.setProperty("--reveal-radius", radius);
 			node.style.setProperty("--reveal-x", `${local.x}px`);
 			node.style.setProperty("--reveal-y", `${local.y}px`);
-			node.style.setProperty("--reveal-border", String(strength * (borderOnly ? .48 : .38)));
-			node.style.setProperty("--reveal-surface", String(!borderOnly && hover ? .045 : 0));
+			const isInlineCode = target.localName === "code";
+			node.style.setProperty("--reveal-border", String(strength * (borderOnly ? .48 : isInlineCode ? .52 : .38)));
+			node.style.setProperty("--reveal-surface", String(!borderOnly && hover ? isInlineCode ? .085 : .045 : 0));
 			const current = press;
 			if (current?.target === target && !current.light) {
 				current.light = createPressLight(document, window, node, () => {
@@ -2283,7 +2318,10 @@ function createPressMotion(document, window, modules, refresh) {
 		if (!(node instanceof window.Element) || node.closest("input,textarea,select,[role=\"textbox\"],[role=\"searchbox\"],[role=\"combobox\"],[contenteditable]:not([contenteditable=\"false\"])")) return null;
 		const quiet = modules.select("turnRail");
 		if (quiet && node.closest(quiet)) return null;
-		const target = node.closest(actionSelector(modules));
+		const actors = actionSelector(modules);
+		const inlineCode = node.closest(":not(pre) > code");
+		if (inlineCode && !inlineCode.parentElement?.closest(actors)) return null;
+		const target = node.closest(actors);
 		return target instanceof window.HTMLElement ? target : null;
 	}
 	function available(target) {
@@ -2598,14 +2636,22 @@ var TINT = {
 	light: "247 247 247",
 	dark: "24 24 24"
 };
+var CODE_SURFACE_TOKENS = [
+	["--dsw-alias-markdown-code-block", 72],
+	["--dsw-alias-markdown-code-block-banner", 80],
+	["--dsw-alias-markdown-inline-code", 74]
+];
 var CANVAS_RULES = (() => {
 	const names = Object.keys(CANVAS_TOKENS);
 	const kept = (name) => `--acrylic-opaque${name.slice(1)}`;
 	const join = (value) => names.map((name) => `${name}: ${value(name)};`).join(" ");
+	const codeKeep = CODE_SURFACE_TOKENS.map(([name]) => `${kept(name)}: var(${name});`).join(" ");
+	const codeTint = CODE_SURFACE_TOKENS.map(([name, pct]) => `${name}: color-mix(in srgb, var(${kept(name)}) ${pct}%, transparent);`).join(" ");
+	const codeRestore = CODE_SURFACE_TOKENS.map(([name]) => `${name}: var(${kept(name)});`).join(" ");
 	return {
-		keep: names.map((name) => `${kept(name)}: var(${name});`).join(" "),
-		clear: join(() => "transparent"),
-		restore: join((name) => `var(${kept(name)})`),
+		keep: `${names.map((name) => `${kept(name)}: var(${name});`).join(" ")} ${codeKeep}`,
+		clear: `${join(() => "transparent")} ${codeTint}`,
+		restore: `${join((name) => `var(${kept(name)})`)} ${codeRestore}`,
 		bar: join((name) => `color-mix(in srgb, var(${kept(name)}) 82%, transparent)`),
 		acrylic: `color-mix(in srgb, var(${kept("--dsw-alias-bg-base")}) 82%, transparent)`,
 		solid: `color-mix(in srgb, var(${kept("--dsw-alias-bg-base")}) 94%, transparent)`,
@@ -2743,15 +2789,22 @@ ${FRAME}[data-sidebar-drawer] > ${SIDEBAR_COL}::before {
 /* Sticky rows that used the canvas to hide scrolled content become acrylic
    bars, matched by the host's own semantic anchors (host/modules.ts): an open
    compaction header (sticky exactly while expanded), and a code block's banner
-   wrapper, which the host itself selects as :has(>[data-code-block-banner]). */
+   wrapper, which the host itself selects as :has(>[data-code-block-banner]).
+   Code blocks paint their translucent fill on .md-code-block once; <pre> stays
+   transparent so the fill does not compound, and the sticky banner blurs code
+   scrolling beneath it. */
+${FRAME} .md-code-block :where(pre, pre.shiki) { background: transparent !important; }
+${FRAME} [data-code-block-banner] { background: var(--dsw-alias-markdown-code-block-banner); }
 ${FRAME} [data-expanded] [data-open] [data-disclosure-header],
 ${FRAME} ${COMPACTION_HEADER},
 ${FRAME} ${CODE_BANNER},
 ${FRAME} th {
   ${CANVAS_RULES.bar}
 }
+${FRAME} ${CODE_BANNER} { background: transparent; }
 ${FRAME} [data-expanded] [data-open] [data-disclosure-header],
-${FRAME} ${COMPACTION_HEADER} {
+${FRAME} ${COMPACTION_HEADER},
+${FRAME} ${CODE_BANNER} {
   backdrop-filter: blur(20px) saturate(1.2);
 }
 

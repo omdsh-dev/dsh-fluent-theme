@@ -24,9 +24,9 @@ Settings, hints, navigation labels and status messages follow the DSH language s
 
 ## Appearance and motion
 
-Win10 styling covers buttons, tags, official plugin update panels, session/workspace HoverCards, and text quote controls. Context menus retain the host's own exit animation. Wallpaper mode puts an acrylic backing behind the composer and its bottom information bar; unsupported blur falls back to a nearly opaque surface.
+Win10 styling covers buttons, tags, code blocks and inline code chips, official plugin update panels, session/workspace HoverCards, and text quote controls. Context menus retain the host's own exit animation. Wallpaper mode puts an acrylic backing behind the composer, its bottom information bar, and sticky code-block headers while giving code blocks and inline code chips translucent fills; unsupported blur falls back to a nearly opaque surface.
 
-Reveal lighting follows pointer proximity and presses without changing text selection or focus. Press feedback adds a size- and position-dependent tilt or shrink, with conservative fallback for clipped controls, scrolling containers, drag handles and popup triggers. Keyboard activation uses centered feedback. These are web approximations, not an exact reproduction of every native WinUI template.
+Reveal lighting follows pointer proximity and presses without changing text selection or focus, lighting the borders of code block cards and the surface and border of inline code chips. Press feedback adds a size- and position-dependent tilt or shrink, with conservative fallback for clipped controls, scrolling containers, drag handles and popup triggers. Keyboard activation uses centered feedback. These are web approximations, not an exact reproduction of every native WinUI template.
 
 Reduced motion disables decorative movement. High contrast and reduced transparency disable wallpaper materials or lighting where appropriate. The host's normal interaction feedback remains available.
 
