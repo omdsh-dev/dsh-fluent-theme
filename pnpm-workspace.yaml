@@ -2,5 +2,5 @@
 allowBuilds:
   esbuild: false
 minimumReleaseAgeExclude:
-  - '@deepseek-ai/dsh-client-ui-primitives@0.2.2-rc.5'
-  - '@deepseek-ai/dsh-client-ui-theme@0.2.2-rc.5'
+  - '@deepseek-ai/dsh-client-ui-primitives@0.2.3-alpha.2'
+  - '@deepseek-ai/dsh-client-ui-theme@0.2.3-alpha.2'

@@ -3,11 +3,13 @@
 // and the web shell's Vite build uses another format again. Never write them
 // literally (build.ts rejects it). Prefer the host's semantic attributes; for
 // components that expose none, read the hashed name at runtime from one of:
-// - a client plugin package's module tag: ui-chat, ui-workspace and the like
-//   inject one <style data-plugin-css="<package>/<File>.module.css"> per
-//   module, whose id is build-independent;
-// - the web shell's own stylesheet, for packages it bundles (primitives),
-//   which inject no module tag. Their rules carry Vite names
+// - a client module's style tag, whose ids are build-independent. Through
+//   0.2.2 each package injects <style data-plugin-css="<package>/<File>.module.css">;
+//   since 0.2.3 the renderer installs every module's stylesheets, the shell's
+//   own primitives included, as <style data-plugin="<package>"
+//   data-path="src/…/<File>.module.css">. Both are read;
+// - the web shell's own stylesheet, for packages it bundles (primitives
+//   through 0.2.2), which inject no module tag. Their rules carry Vite names
 //   (_<local>_<hash>_<line>); SHELL_SIGNATURES picks a module's hash by exact
 //   selectors that only that module has, and anything ambiguous stays
 //   unresolved, so its rules are simply not applied.
@@ -79,18 +81,30 @@ export interface HostModules {
 export const shellFrame = (modules: HostModules): string =>
   modules.select('frame') ?? 'div:has(> [data-shell-bottom]):has(> [data-rightbar-col])';
 
-const MODULE_TAG = 'style[data-plugin-css]';
+const MODULE_TAG = 'style[data-plugin-css], style[data-plugin][data-path]';
 const SHELL_SHEET = 'link[rel~="stylesheet"]';
 const NAMES = Object.keys(HOST_CLASSES) as HostClassName[];
 const literal = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const select = (found: string | null | undefined) => found ? `[class~="${found}"]` : null;
 
+/** Style tags of module `<package>/<File>.module.css`, in either host format. */
+function moduleTags(document: Document, id: string): Element[] {
+  const legacy = document.head.querySelector(`style[data-plugin-css=${JSON.stringify(id)}]`);
+  if (legacy) return [legacy];
+  const cut = id.lastIndexOf('/');
+  const owner = id.slice(0, cut), file = id.slice(cut + 1);
+  return [...document.head.querySelectorAll(`style[data-plugin=${JSON.stringify(owner)}][data-path]`)]
+    .filter(style => { const path = style.getAttribute('data-path') ?? ''; return path === file || path.endsWith(`/${file}`); });
+}
+
 function fromModuleTag(document: Document, name: HostClassName): string | null {
   const [module, local] = HOST_CLASSES[name];
+  const pattern = new RegExp(String.raw`\.([\w-]+_${local})(?![\w-])`);
   for (const id of [module, ...MODULE_ALIASES[module] ?? []]) {
-    const style = document.head.querySelector(`style[data-plugin-css=${JSON.stringify(id)}]`);
-    const found = style?.textContent?.match(new RegExp(String.raw`\.([\w-]+_${local})(?![\w-])`))?.[1];
-    if (found) return select(found);
+    for (const style of moduleTags(document, id)) {
+      const found = style.textContent?.match(pattern)?.[1];
+      if (found) return select(found);
+    }
   }
   return null;
 }

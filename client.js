@@ -537,15 +537,27 @@ var SHELL_SIGNATURES = {
 * only covers the time before the module resolves.
 */
 var shellFrame = (modules) => modules.select("frame") ?? "div:has(> [data-shell-bottom]):has(> [data-rightbar-col])";
-var MODULE_TAG = "style[data-plugin-css]";
+var MODULE_TAG = "style[data-plugin-css], style[data-plugin][data-path]";
 var SHELL_SHEET = "link[rel~=\"stylesheet\"]";
 var NAMES = Object.keys(HOST_CLASSES);
 var literal = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 var select = (found) => found ? `[class~="${found}"]` : null;
+/** Style tags of module `<package>/<File>.module.css`, in either host format. */
+function moduleTags(document, id) {
+	const legacy = document.head.querySelector(`style[data-plugin-css=${JSON.stringify(id)}]`);
+	if (legacy) return [legacy];
+	const cut = id.lastIndexOf("/");
+	const owner = id.slice(0, cut), file = id.slice(cut + 1);
+	return [...document.head.querySelectorAll(`style[data-plugin=${JSON.stringify(owner)}][data-path]`)].filter((style) => {
+		const path = style.getAttribute("data-path") ?? "";
+		return path === file || path.endsWith(`/${file}`);
+	});
+}
 function fromModuleTag(document, name) {
 	const [module, local] = HOST_CLASSES[name];
-	for (const id of [module, ...MODULE_ALIASES[module] ?? []]) {
-		const found = document.head.querySelector(`style[data-plugin-css=${JSON.stringify(id)}]`)?.textContent?.match(new RegExp(String.raw`\.([\w-]+_${local})(?![\w-])`))?.[1];
+	const pattern = new RegExp(String.raw`\.([\w-]+_${local})(?![\w-])`);
+	for (const id of [module, ...MODULE_ALIASES[module] ?? []]) for (const style of moduleTags(document, id)) {
+		const found = style.textContent?.match(pattern)?.[1];
 		if (found) return select(found);
 	}
 	return null;
@@ -999,7 +1011,7 @@ var IN_PHASED = `:is(${HOST_PHASED}, ${HOST_PHASED} *)`;
 var GHOST_SKIP = "iframe, webview, video, audio, object, embed, canvas";
 var GHOST_MAX_NODES = 1500;
 var GHOST_DETACH = /^(?:id|autofocus|popover|name|for|form|aria-(?:activedescendant|controls|owns)|data-(?:modal-autofocus|shortcut-modal|window-drag(?:-recall)?|element-id|plugin-package|team-panel))$/;
-var isHook = ({ name, value }) => name === "aria-modal" || name === "role" && value === "menu" || /^data-(?:dockkit|sidebar-right|composer)-/.test(name);
+var isHook = ({ name, value }) => name === "aria-modal" || name === "data-menu-popup" || name === "role" && value === "menu" || /^data-(?:dockkit|sidebar-right|composer)-/.test(name);
 var STATE_PROPS = [
 	"background-color",
 	"background-image",
@@ -1155,6 +1167,37 @@ function pinGhost(view, root, state) {
 		if (node?.tagName === tag) pins.push([node, values]);
 	}
 	for (const [node, values] of pins) for (const [name, value] of values) inlineStyle(node)?.setProperty(name, value);
+}
+function boxOf(popup) {
+	const { top, left, width, height } = popup.getBoundingClientRect();
+	return {
+		top,
+		left,
+		width,
+		height
+	};
+}
+function pinBox(node, box) {
+	const style = inlineStyle(node);
+	if (!style) return;
+	style.removeProperty("position-anchor");
+	const values = {
+		"position-area": "none",
+		"position-try-fallbacks": "none",
+		inset: "auto",
+		margin: "0",
+		"place-self": "start",
+		"box-sizing": "border-box",
+		"min-width": "0",
+		"min-height": "0",
+		"max-width": "none",
+		"max-height": "none",
+		top: `${box.top}px`,
+		left: `${box.left}px`,
+		width: `${box.width}px`,
+		height: `${box.height}px`
+	};
+	for (const [name, value] of Object.entries(values)) style.setProperty(name, value);
 }
 function restoreScroll(root, scroll) {
 	for (const [path, [top, left]] of scroll) {
@@ -1326,20 +1369,50 @@ function createMotion(document, window, { onSettle } = {}) {
 		const parent = popup.parentElement;
 		return parent?.localName === "span" && parent.parentElement === document.body && popup.matches(HOVER_CARD) && window.getComputedStyle(parent).display === "contents" && parent ? parent : popup;
 	}
+	const anchored = (popup) => window.getComputedStyle(popup).getPropertyValue("position-anchor").trim().startsWith("--");
+	function measure(popup, info) {
+		if (info.box && !info.entering && popup.isConnected) info.box = boxOf(popup);
+	}
+	const sizes = new window.ResizeObserver((entries) => {
+		for (const { target } of entries) {
+			const info = tracked.get(target);
+			if (info) measure(target, info);
+		}
+	});
+	let frame = 0;
+	const remeasure = () => {
+		if (frame || ![...tracked.values()].some((info) => info.box)) return;
+		frame = window.requestAnimationFrame(() => {
+			frame = 0;
+			for (const [popup, info] of tracked) measure(popup, info);
+		});
+	};
 	function start(popup) {
 		if (!enabled || !popup.isConnected) return;
 		const root = rootOf(popup);
+		const box = anchored(popup) ? boxOf(popup) : null;
 		const info = {
 			...describe(popup),
 			root,
 			scroll: scrollState(popup),
 			backing: backingOf(window, popup),
-			state: null
+			state: null,
+			box,
+			entering: true
 		};
 		const animations = enter(popup, info);
-		for (const [element] of tracked) if (!element.isConnected) tracked.delete(element);
+		for (const [element] of tracked) if (!element.isConnected) {
+			tracked.delete(element);
+			sizes.unobserve(element);
+		}
 		tracked.set(popup, info);
+		if (box) sizes.observe(popup);
 		if (root.parentNode) removals.observe(root.parentNode, { childList: true });
+		const entered = () => {
+			info.entering = false;
+			if (tracked.get(popup) === info) measure(popup, info);
+		};
+		Promise.all(animations.map((animation) => animation.finished)).then(entered, entered);
 		if (onSettle) settle(animations, onSettle);
 	}
 	function whenPlaced(popup) {
@@ -1369,6 +1442,7 @@ function createMotion(document, window, { onSettle } = {}) {
 		const target = popup === node ? clone : nodeAt(clone, pathTo(node, popup));
 		if (!target) return;
 		detachGhost(clone);
+		if (info.box) pinBox(target, info.box);
 		const next = record.nextSibling?.parentNode === parent ? record.nextSibling : null;
 		parent.insertBefore(clone, next);
 		const state = info.state && window.performance.now() - info.state.time < STATE_TTL ? info.state.nodes : null;
@@ -1400,6 +1474,7 @@ function createMotion(document, window, { onSettle } = {}) {
 					continue;
 				}
 				tracked.delete(popup);
+				sizes.unobserve(popup);
 				try {
 					ghost(popup, node, info, record);
 				} catch (error) {
@@ -1411,7 +1486,9 @@ function createMotion(document, window, { onSettle } = {}) {
 	}
 	function onScroll(event) {
 		const target = event.target;
-		if (!tracked.size || !(target instanceof window.Element)) return;
+		if (!tracked.size) return;
+		remeasure();
+		if (!(target instanceof window.Element)) return;
 		for (const [popup, info] of tracked) if (popup.contains(target)) {
 			info.scroll.set(pathTo(popup, target), [target.scrollTop, target.scrollLeft]);
 			return;
@@ -1425,6 +1502,7 @@ function createMotion(document, window, { onSettle } = {}) {
 				time,
 				nodes
 			};
+			measure(popup, info);
 		}
 	}
 	const onPointer = (event) => {
@@ -1459,6 +1537,8 @@ function createMotion(document, window, { onSettle } = {}) {
 			passive: true
 		});
 		else document.removeEventListener(type, listener, { capture: true });
+		if (enabled) window.addEventListener("resize", remeasure, { passive: true });
+		else window.removeEventListener("resize", remeasure);
 		if (enabled) {
 			for (const node of document.body.children) markStill(node);
 			return backings.observe(document.body, { childList: true });
@@ -1466,7 +1546,10 @@ function createMotion(document, window, { onSettle } = {}) {
 		backings.disconnect();
 		for (const node of document.querySelectorAll(`[${STILL$1}]`)) node.removeAttribute(STILL$1);
 		removals.disconnect();
+		sizes.disconnect();
 		tracked.clear();
+		if (frame) window.cancelAnimationFrame(frame);
+		frame = 0;
 		for (const clone of ghosts) clone.remove();
 		ghosts.clear();
 	}

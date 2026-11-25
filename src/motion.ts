@@ -12,6 +12,10 @@ import { createStyleSheet } from './style.ts';
 //   itself.
 // Popups with an acrylic layer fade that layer and their content separately:
 // opacity < 1 on an ancestor is a backdrop root and would drop the blur.
+// Anchor-positioned popups (compact HoverCards since 0.2.3, portaled menus and
+// submenus, stat panels) may lose their anchor-name in the commit that removes
+// them, and a clone never anchors: their last box is recorded while they are
+// open and the clone is pinned there.
 const HOLD = 'acrylic-popup-hold';
 const HOVER_CARD = 'div[style*="--dsh-hover-preview-fade"]';
 const BACKING_IN = 'acrylic-backing-in';
@@ -47,10 +51,11 @@ const GHOST_MAX_NODES = 1500;
 // answer host id lookups.
 const GHOST_DETACH = /^(?:id|autofocus|popover|name|for|form|aria-(?:activedescendant|controls|owns)|data-(?:modal-autofocus|shortcut-modal|window-drag(?:-recall)?|element-id|plugin-package|team-panel))$/;
 // Removed after insertion, once their styling is pinned: host code queries them
-// document-wide (the modal stack and shortcut context match [role="menu"] and
-// aria-modal; pane, composer and rightbar lookups), yet stylesheets select them.
+// document-wide (the modal stack and shortcut context match [role="menu"],
+// searchable menus' [data-menu-popup] since 0.2.3, and aria-modal; pane,
+// composer and rightbar lookups), yet stylesheets select them.
 // Other roles stay: menus style rows and tooltips by role.
-const isHook = ({ name, value }: Attr): boolean => name === 'aria-modal' || (name === 'role' && value === 'menu') || /^data-(?:dockkit|sidebar-right|composer)-/.test(name);
+const isHook = ({ name, value }: Attr): boolean => name === 'aria-modal' || name === 'data-menu-popup' || (name === 'role' && value === 'menu') || /^data-(?:dockkit|sidebar-right|composer)-/.test(name);
 // Paint that hover and focus give a clone's rows, read on the inputs that may
 // close a popup (presses, clicks, closing keys): the clone is inert and
 // pointer-transparent. Readings older than STATE_TTL are dropped.
@@ -187,6 +192,29 @@ function pinGhost(view: View, root: Element, state: readonly StateNode[] | null)
   for (const [node, values] of pins) for (const [name, value] of values) inlineStyle(node)?.setProperty(name, value);
 }
 
+// Viewport box of an anchored popup, recorded while no entrance runs on it.
+type Box = { readonly top: number; readonly left: number; readonly width: number; readonly height: number };
+function boxOf(popup: Element): Box {
+  const { top, left, width, height } = popup.getBoundingClientRect();
+  return { top, left, width, height };
+}
+
+// The clone's position-anchor may name an anchor that no longer exists, which
+// drops position-area and leaves its insets against the viewport: fix it at
+// the recorded box instead, sized there as well (insets, self-alignment and
+// anchor-size() limits may have shaped it).
+function pinBox(node: Element, box: Box) {
+  const style = inlineStyle(node);
+  if (!style) return;
+  style.removeProperty('position-anchor');
+  const values = {
+    'position-area': 'none', 'position-try-fallbacks': 'none', inset: 'auto', margin: '0', 'place-self': 'start', 'box-sizing': 'border-box',
+    'min-width': '0', 'min-height': '0', 'max-width': 'none', 'max-height': 'none',
+    top: `${box.top}px`, left: `${box.left}px`, width: `${box.width}px`, height: `${box.height}px`,
+  };
+  for (const [name, value] of Object.entries(values)) style.setProperty(name, value);
+}
+
 function restoreScroll(root: Element, scroll: Scroll) {
   for (const [path, [top, left]] of scroll) {
     const node = nodeAt(root, path);
@@ -264,6 +292,10 @@ type Tracked = Shape & {
   readonly scroll: Scroll;
   readonly backing: Element | null;
   state: { readonly time: number; readonly nodes: StateNode[] } | null;
+  /** Last box of an anchor-positioned popup; null for script-placed ones. */
+  box: Box | null;
+  /** Entrance still running: its translate would skew the box. */
+  entering: boolean;
 };
 type Keyframe = Record<string, string | number>;
 
@@ -376,14 +408,46 @@ export function createMotion(document: Document, window: View, { onSettle }: Mot
     return portal && parent ? parent : popup;
   }
 
+  // Anchored boxes are read where layout is already clean or about to be: at
+  // entry (before the entrance transforms), when the entrance ends, in resize
+  // callbacks, on closing input (capture), and once per frame after scrolling
+  // or a window resize. Never on pointermove.
+  const anchored = (popup: Element) => window.getComputedStyle(popup).getPropertyValue('position-anchor').trim().startsWith('--');
+  function measure(popup: Element, info: Tracked) {
+    if (info.box && !info.entering && popup.isConnected) info.box = boxOf(popup);
+  }
+  const sizes = new window.ResizeObserver(entries => {
+    for (const { target } of entries) {
+      const info = tracked.get(target);
+      if (info) measure(target, info);
+    }
+  });
+  let frame = 0;
+  const remeasure = () => {
+    if (frame || ![...tracked.values()].some(info => info.box)) return;
+    frame = window.requestAnimationFrame(() => {
+      frame = 0;
+      for (const [popup, info] of tracked) measure(popup, info);
+    });
+  };
+
   function start(popup: Element) {
     if (!enabled || !popup.isConnected) return;
     const root = rootOf(popup);
-    const info: Tracked = { ...describe(popup), root, scroll: scrollState(popup), backing: backingOf(window, popup), state: null };
+    const box = anchored(popup) ? boxOf(popup) : null;
+    const info: Tracked = { ...describe(popup), root, scroll: scrollState(popup), backing: backingOf(window, popup), state: null, box, entering: true };
     const animations = enter(popup, info);
-    for (const [element] of tracked) if (!element.isConnected) tracked.delete(element);
+    for (const [element] of tracked) {
+      if (!element.isConnected) { tracked.delete(element); sizes.unobserve(element); }
+    }
     tracked.set(popup, info);
+    if (box) sizes.observe(popup);
     if (root.parentNode) removals.observe(root.parentNode, { childList: true });
+    const entered = () => {
+      info.entering = false;
+      if (tracked.get(popup) === info) measure(popup, info);
+    };
+    Promise.all(animations.map(animation => animation.finished)).then(entered, entered);
     if (onSettle) settle(animations, onSettle);
   }
 
@@ -421,6 +485,8 @@ export function createMotion(document: Document, window: View, { onSettle }: Mot
     const target = popup === node ? clone : nodeAt(clone, pathTo(node, popup));
     if (!target) return;
     detachGhost(clone);
+    // Placed before insertion, so the clone never lays out against the viewport.
+    if (info.box) pinBox(target, info.box);
     const next = record.nextSibling?.parentNode === parent ? record.nextSibling : null;
     parent.insertBefore(clone, next);
     const state = info.state && window.performance.now() - info.state.time < STATE_TTL ? info.state.nodes : null;
@@ -449,6 +515,7 @@ export function createMotion(document: Document, window: View, { onSettle }: Mot
             continue;
           }
           tracked.delete(popup);
+          sizes.unobserve(popup);
           // One failed clone must not stop the other exits in this batch.
           try { ghost(popup, node, info, record); } catch (error) { window.reportError(error); }
         }
@@ -459,7 +526,10 @@ export function createMotion(document: Document, window: View, { onSettle }: Mot
 
   function onScroll(event: Event) {
     const target = event.target;
-    if (!tracked.size || !(target instanceof window.Element)) return;
+    if (!tracked.size) return;
+    // A scrolled ancestor of an anchor (the document included) moves its popup.
+    remeasure();
+    if (!(target instanceof window.Element)) return;
     for (const [popup, info] of tracked) {
       if (popup.contains(target)) { info.scroll.set(pathTo(popup, target), [target.scrollTop, target.scrollLeft]); return; }
     }
@@ -469,6 +539,7 @@ export function createMotion(document: Document, window: View, { onSettle }: Mot
     for (const [popup, info] of tracked) {
       const nodes = popup.isConnected ? interactionState(window, popup) : null;
       info.state = nodes && { time, nodes };
+      measure(popup, info);
     }
   }
   const onPointer = (event: PointerEvent) => {
@@ -492,13 +563,17 @@ export function createMotion(document: Document, window: View, { onSettle }: Mot
       if (enabled) document.addEventListener(type, listener, { capture: true, passive: true });
       else document.removeEventListener(type, listener, { capture: true });
     }
+    if (enabled) window.addEventListener('resize', remeasure, { passive: true });
+    else window.removeEventListener('resize', remeasure);
     if (enabled) {
       for (const node of document.body.children) markStill(node);
       return backings.observe(document.body, { childList: true });
     }
     backings.disconnect();
     for (const node of document.querySelectorAll(`[${STILL}]`)) node.removeAttribute(STILL);
-    removals.disconnect(); tracked.clear();
+    removals.disconnect(); sizes.disconnect(); tracked.clear();
+    if (frame) window.cancelAnimationFrame(frame);
+    frame = 0;
     for (const clone of ghosts) clone.remove();
     ghosts.clear();
   }
